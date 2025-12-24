@@ -1,0 +1,80 @@
+# Inference Configuration for Lung Cancer Risk Prediction with Bbox Detection
+# Based on nlst_detr_atlas.yaml but optimized for inference
+
+experiment:
+  name: lung_cancer_inference
+  tags: ["inference", "detr", "atlas"]
+  notes: "Inference configuration for lung cancer risk prediction"
+
+main:
+  exp_name: lung_cancer_inference
+  seed: 42
+  log_dir: ./logs
+  checkpoints_dir: ./logs
+  timestamp_save_dir: False
+
+dataset:
+  type: CSVDataset
+  modality: CT
+  num_classes: 2
+
+  shared_dataset_kwargs:
+    csv_path: ""  # Will be set at runtime
+    num_images: 256
+    max_followup: 6
+    anatomy: "chest_ct"
+    windows: 'all'  # Use all 11 CT windows
+    img_size:
+      - 256
+      - 256
+
+  img_size:
+    - 256
+    - 256
+  num_chan: 1
+  img_mean: [128.1722]
+  img_std: [87.1849]
+
+model:
+  type: MultiStage
+  kwargs:
+    pool_name: MultiAttentionPool
+    pool_kwargs:
+      hidden_dim: 1152
+
+    backbone_model_type: MultimodalAtlas
+    backbone_kwargs:
+      pretrained: True
+      model_repo_id: YalaLab/Pillar0-ChestCT
+      model_revision: main
+
+    head_models:
+      survival:
+        type: CumulativeProbabilityLayer
+        kwargs:
+          input_dim: 1152
+          max_followup: 6
+        apply_pooling: True
+        use_pooled_features: False
+        enable_at_eval: True
+
+      detr:
+        type: DETR3D
+        use_pooled_features: False
+        apply_pooling: False
+        kwargs:
+          input_dim: 1152
+          num_classes: 1
+          num_queries: 1
+          transformer_kwargs:
+            d_model: 128
+            dropout: 0.1
+            nhead: 1
+            dim_feedforward: 128
+            num_encoder_layers: 2
+            num_decoder_layers: 2
+            normalize_before: False
+        enable_at_eval: True
+
+
+
